@@ -50,12 +50,18 @@ Navio/                         # Python FastAPI 后端
 │   ├── financial_products/SKILL.md   # 综合金融咨询规范
 │   ├── tech_support/SKILL.md         # 金融系统技术规范
 │   └── account_services/SKILL.md     # 账户与费用服务规范
-├── config/                    # Nginx + Prometheus 配置
-└── docker-compose.yml         # 5 服务全栈编排
+├── config/                    # Prometheus 配置
+└── Dockerfile                 # 后端镜像（多阶段构建）
 
 NavioFrontend/                 # Vue 3 前端
 ├── src/App.vue                # 聊天调试、知识库检索、知识导入
-└── src/lib/backends.js        # API 封装
+├── src/lib/backends.js        # API 封装
+├── Dockerfile                 # 前端镜像（Node 构建 → Nginx 托管）
+└── nginx.conf                 # 静态托管 + /api/python 反代
+
+docker-compose.yml             # 全栈编排（仓库根目录，一键启动）
+deploy.sh                      # 部署管理脚本
+.env.template                  # 环境变量模板
 ```
 
 ## 🚀 快速开始
@@ -68,8 +74,7 @@ NavioFrontend/                 # Vue 3 前端
 ### 1. 配置
 
 ```bash
-cd Navio
-cp .env.example .env
+cp .env.template .env    # 填写 ANTHROPIC_API_KEY
 ```
 
 `.env` 配置（DeepSeek 示例）：
@@ -80,23 +85,21 @@ ANTHROPIC_MODEL=deepseek-v4-pro
 ANTHROPIC_API_KEY=your_deepseek_key
 ```
 
-### 2. 启动
+### 2. 启动（仓库根目录一键全栈）
 
 ```bash
-docker compose up -d --build          # 后端 5 服务
-cd ../NavioFrontend
-npm install && npm run build
-docker compose up -d --build          # 前端容器
+docker compose up -d --build
 ```
+
+或使用部署脚本：`./deploy.sh up`
 
 | 服务 | 端口 | 用途 |
 |---|---|---|
 | navio-app | 8000 | FastAPI 主应用 |
-| navio-nginx | 80 | 反向代理 |
 | navio-chromadb | 8001 | 向量数据库 |
 | navio-redis | 6379 | 工作记忆 |
 | navio-prometheus | 9090 | 监控 |
-| navio-frontend | 5174 | 前端界面 |
+| navio-frontend | 5174 | 前端界面（含 /api/python API 反代） |
 
 ### 3. 验证
 
@@ -128,6 +131,8 @@ curl -X POST http://localhost:8000/chat \
 
 ## 🧠 系统架构
 
+### 请求链路
+
 ```mermaid
 flowchart TD
     A[用户消息] --> B[FastAPI /chat]
@@ -139,6 +144,20 @@ flowchart TD
     G --> H[Agent + LLM · 合规话术]
     H --> I[回写 Redis / ChromaDB]
 ```
+
+### 部署拓扑（Docker Compose）
+
+```mermaid
+flowchart LR
+    User[用户浏览器] -->|HTTP :5174| FE[frontend Nginx<br/>静态托管 + /api/python 反代]
+    User -->|HTTP :8000| App[FastAPI :8000<br/>--proxy-headers]
+    FE -->|前缀剥离 /api/python/| App
+    App --> R[(Redis :6379<br/>工作记忆)]
+    App --> C[(ChromaDB :8001<br/>RAG + 情景记忆 + 画像)]
+    App --> P[Prometheus :9090<br/>监控采集]
+```
+
+仓库根目录单一 compose 编排（`docker compose up -d --build` 一键启动，`./deploy.sh` 管理），前端 Nginx 统一入口，后端 API 可直接访问 `:8000`。
 
 ## 🧪 评测
 

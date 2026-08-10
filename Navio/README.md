@@ -17,21 +17,29 @@ Navio 是一个企业级智能客服系统，核心链路为：
 ## 1. 项目结构
 
 ```text
-Navio/
-├── api/main.py                    # FastAPI 入口，/chat /search /knowledge /monitor /eval
-├── core/intent_recognizer.py      # 三路融合意图识别
-├── agents/agent_orchestrator.py   # 多 Agent 路由编排
-├── memory/conversation_memory.py  # Redis + ChromaDB 记忆管理
-├── mcp/tool_manager.py            # MCP 工具调用、查询改写、重排、熔断、缓存、降级
-├── mcp/knowledge_base.py          # ChromaDB RAG 知识库
-├── monitor/performance_monitor.py # Agent/工具在线监控
-├── evaluation/evaluator.py        # 端到端评测
-├── data/demo_docs/                # 演示知识库文档
-├── docker-compose.yml             # Docker 全栈编排
-├── Dockerfile
-├── requirements.txt
-└── .env
+仓库根目录 Navio/
+├── docker-compose.yml          # 全栈编排（根目录一键启动）
+├── .env.template               # 环境变量模板（复制为 .env 并填写 API Key）
+├── deploy.sh                   # 部署管理脚本
+├── Navio/                      # 后端
+│   ├── api/main.py             # FastAPI 入口，/chat /search /knowledge /monitor /eval
+│   ├── core/intent_recognizer.py   # 三路融合意图识别
+│   ├── agents/agent_orchestrator.py  # 多 Agent 路由编排
+│   ├── memory/conversation_memory.py  # Redis + ChromaDB 记忆管理
+│   ├── mcp/tool_manager.py     # MCP 工具调用、查询改写、重排、熔断、缓存、降级
+│   ├── mcp/knowledge_base.py   # ChromaDB RAG 知识库
+│   ├── monitor/performance_monitor.py  # Agent/工具在线监控
+│   ├── evaluation/evaluator.py # 端到端评测
+│   ├── skills/                 # 金融业务 Skills（热加载）
+│   ├── Dockerfile              # 多阶段构建（production / development 目标）
+│   └── requirements.txt
+└── NavioFrontend/              # 前端
+    ├── src/                    # Vue 3 源码
+    ├── Dockerfile              # Node 构建 → Nginx 托管
+    └── nginx.conf              # 静态托管 + /api/python 反代
 ```
+
+> 注意：`docker-compose.yml`、`.env`、`deploy.sh` 均在**仓库根目录**，本文档后续所有 `docker compose` 命令都从根目录执行。
 
 ## 2. 环境准备
 
@@ -43,10 +51,11 @@ Navio/
 
 ### 2.2 配置 `.env`
 
-复制示例文件：
+`docker-compose.yml` 位于仓库根目录，因此 `.env` 也放在根目录（与 compose 文件同级）：
 
 ```bash
-cp .env.example .env
+# 在仓库根目录执行
+cp .env.template .env
 ```
 
 最少需要配置：
@@ -63,7 +72,7 @@ ANTHROPIC_MODEL=deepseek-v4-pro
 ANTHROPIC_API_KEY=your_deepseek_key
 ```
 
-Docker Compose 场景下，Redis 和 ChromaDB 的连接由 `docker-compose.yml` 覆盖为容器内地址。通常不需要手动改：
+Docker Compose 场景下，Redis 和 ChromaDB 的连接由根目录的 `docker-compose.yml` 覆盖为容器内地址。通常不需要手动改：
 
 ```env
 REDIS_PASSWORD=navio123
@@ -77,28 +86,32 @@ Navio 常用两种 Docker 启动方式：`docker compose up` 全栈部署，以�
 
 | 对比项 | Docker Compose 全栈部署 | Docker run 开发模式 |
 |--------|--------------------------|----------------------|
-| 启动命令 | `docker compose up -d --build` | `docker run ... navio ...` |
-| 启动内容 | Navio、Redis、ChromaDB、Prometheus、Nginx | 只启动你指定的单个容器 |
+| 启动命令 | `docker compose up -d --build`（根目录） | `docker run ... navio-navio ...` |
+| 启动内容 | Navio、Redis、ChromaDB、Prometheus、前端 Nginx | 只启动你指定的单个容器 |
 | Redis/ChromaDB | 自动启动并加入同一网络 | 必须先执行 `docker compose up -d redis chromadb` |
 | 容器网络 | Compose 自动创建并管理 | 需要手动指定 `--network navio_navio-network` |
 | 服务名解析 | 应用可直接访问 `redis`、`chromadb` | 只有加入同一网络后才可访问 `redis`、`chromadb` |
-| 代码更新 | 通常需要 rebuild 或重启服务 | 挂载 `-v "$(pwd):/workspace"` 后，代码修改可直接生效，重启容器即可 |
+| 代码更新 | 通常需要 rebuild 或重启服务 | 挂载 `-v "$(pwd):/app"` 后，代码修改可直接生效，重启容器即可 |
 | 适合场景 | 演示、联调、完整部署、HTTP API 服务 | 本地开发、调试 CLI、临时覆盖环境变量 |
 | 常见问题 | API Key 或依赖健康检查失败 | 忘记启动 Redis/ChromaDB，导致 `redis:6379 Name or service not known` |
 
 选择建议：
 
-- 想完整体验 HTTP API、Swagger、Nginx、Prometheus：用 **Docker Compose 全栈部署**。
+- 想完整体验 HTTP API、Swagger、Prometheus 和前端控制台：用 **Docker Compose 全栈部署**。
 - 想调试源码或 CLI，并且希望本地改代码后快速重跑：用 **Docker run 开发模式**。
 - 如果只是跑 CLI，最省心的方式是 `docker compose run --rm navio python api/main.py --cli`，它会自动使用 Compose 网络。
 
 ## 3. Docker Compose 全栈部署
 
-推荐使用此方式启动完整服务。
+推荐使用此方式启动完整服务。以下命令均在**仓库根目录**执行。
 
 ```bash
 docker compose up -d --build
 ```
+
+前端已包含在多阶段构建中（Node 构建 → Nginx 托管），无需手动 `npm run build`。
+
+也可使用部署脚本：`./deploy.sh up`
 
 查看服务状态：
 
@@ -119,7 +132,7 @@ docker compose logs -f navio
 | 服务 | 容器名 | 宿主机端口 | 容器内端口 | 用途 |
 |------|--------|------------|------------|------|
 | Navio API | `navio-app` | `8000` | `8000` | 主 API 服务 |
-| Nginx | `navio-nginx` | `80` | `80` | 反向代理 |
+| 前端控制台 | `navio-frontend` | `5174` | `80` | 静态页面 + `/api/python` 反代 |
 | ChromaDB | `navio-chromadb` | `8001` | `8000` | 向量数据库 |
 | Redis | `navio-redis` | `6379` | `6379` | 工作记忆 |
 | Prometheus | `navio-prometheus` | `9090` | `9090` | 监控数据 |
@@ -136,15 +149,15 @@ Swagger 文档：
 http://localhost:8000/docs
 ```
 
-也可以通过 Nginx 访问：
+也可以通过前端 Nginx 访问 API（自动反代到后端）：
 
 ```bash
-curl http://localhost/health
+curl http://localhost:5174/api/python/health
 ```
 
 ## 4. Docker Run 开发模式
 
-开发时可以只用 Compose 启动依赖，然后用 `docker run` 挂载当前代码目录。
+开发时可以只用 Compose 启动依赖，然后用 `docker run` 挂载当前代码目录（使用 Dockerfile 的 `development` 目标，支持热重载）。以下命令在**仓库根目录**执行。
 
 先启动 Redis 和 ChromaDB：
 
@@ -152,7 +165,7 @@ curl http://localhost/health
 docker compose up -d redis chromadb
 ```
 
-构建镜像：
+构建开发镜像（产物镜像名为 `navio-navio:latest`）：
 
 ```bash
 docker compose build --no-cache navio
@@ -170,10 +183,10 @@ docker run -it --rm \
   -e REDIS_URL="redis://:navio123@redis:6379/0" \
   -e CHROMA_HOST="chromadb" \
   -e CHROMA_PORT="8000" \
-  -e CHROMA_PERSIST_DIRECTORY="/workspace/data/chroma" \
-  -v "$(pwd):/workspace" \
-  -w /workspace \
-  navio
+  -e CHROMA_PERSIST_DIRECTORY="/app/data/chroma" \
+  -v "$(pwd):/app" \
+  -w /app \
+  navio-navio:latest
 ```
 
 CLI 交互模式：
@@ -187,9 +200,9 @@ docker run -it --rm \
   -e REDIS_URL="redis://:navio123@redis:6379/0" \
   -e CHROMA_HOST="chromadb" \
   -e CHROMA_PORT="8000" \
-  -v "$(pwd):/workspace" \
-  -w /workspace \
-  navio \
+  -v "$(pwd):/app" \
+  -w /app \
+  navio-navio:latest \
   python api/main.py --cli
 ```
 
@@ -203,10 +216,10 @@ Navio 基于 FastAPI 构建，启动 HTTP 服务后可以直接在浏览器访�
 http://localhost:8000/docs
 ```
 
-如果使用 Nginx 反向代理：
+如果通过前端 Nginx 反代访问 Swagger：
 
 ```text
-http://localhost/docs
+http://localhost:5174/api/python/docs
 ```
 
 打开 Swagger 后，可以点击任意接口右侧的 **Try it out**，填写参数后点 **Execute** 直接调用本地服务。常用调试顺序：
@@ -390,11 +403,11 @@ curl -X POST "http://localhost:8000/search?query=退款多久到账&top_k=3"
 | `.md` | 整个文件作为一篇文档 |
 | `.json` | JSON 数组，格式为 `[{ "title": "...", "content": "..." }]` |
 
-示例：
+示例（将文件路径替换为你本地的文件）：
 
 ```bash
 curl -X POST http://localhost:8000/knowledge/upload \
-  -F "file=@data/demo_docs/sample_knowledge.json"
+  -F "file=@./sample_knowledge.json"
 ```
 
 ### 5.8 `/knowledge/stats`
@@ -588,18 +601,18 @@ curl -X POST http://localhost:8000/knowledge/add \
 
 ### 7.3 上传文件导入知识库
 
-上传 Markdown：
+上传 Markdown（文件路径以你本地的实际文件为准）：
 
 ```bash
 curl -X POST http://localhost:8000/knowledge/upload \
-  -F "file=@data/demo_docs/troubleshooting.md"
+  -F "file=@./troubleshooting.md"
 ```
 
 上传 JSON：
 
 ```bash
 curl -X POST http://localhost:8000/knowledge/upload \
-  -F "file=@data/demo_docs/sample_knowledge.json"
+  -F "file=@./sample_knowledge.json"
 ```
 
 JSON 格式必须是数组：
@@ -1233,6 +1246,8 @@ curl -X POST http://localhost:8000/eval/run
 
 ## 14. 停止、重启和清理
 
+以下命令均在**仓库根目录**执行（与 `docker compose up` 相同）。
+
 停止服务：
 
 ```bash
@@ -1303,7 +1318,7 @@ PY
 
 ### 15.3 Redis 认证失败
 
-确认 `.env` 和 `docker-compose.yml` 中使用的密码一致。默认密码是：
+确认根目录 `.env`（或 `docker-compose.yml` 中的默认值）和 Redis 容器实际使用的密码一致。默认密码是：
 
 ```text
 navio123
@@ -1323,11 +1338,18 @@ docker exec -it navio-redis redis-cli -a navio123 ping
 curl http://localhost:8000/knowledge/stats
 ```
 
-如果是 0，可以重新导入演示文档：
+如果是 0，说明默认文档未导入。应用启动时本应通过 `mcp/knowledge_base.py` 的 `_load_default_docs()` 自动导入默认知识文档（退款政策、订单查询等），可检查后端日志确认：
 
 ```bash
-curl -X POST http://localhost:8000/knowledge/upload \
-  -F "file=@data/demo_docs/sample_knowledge.json"
+docker compose logs -f navio | grep 知识库
+```
+
+也可以手动添加文档：
+
+```bash
+curl -X POST http://localhost:8000/knowledge/add \
+  -H "Content-Type: application/json" \
+  -d '{"documents":[{"title":"示例","content":"自定义知识内容"}]}'
 ```
 
 再测试：
@@ -1357,10 +1379,10 @@ MemoryManager.COMPRESS_AT = 15
 
 ## 16. 推荐验证流程
 
-完整验证可以按这个顺序执行：
+完整验证可以按这个顺序执行（在**仓库根目录**）：
 
 ```bash
-# 1. 启动
+# 1. 启动（也可用 ./deploy.sh up）
 docker compose up -d --build
 
 # 2. 健康检查
@@ -1371,22 +1393,18 @@ curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
   -d '{"message": "你好，我想了解退款政策", "user_id": "demo_user", "conv_id": "demo_conv"}'
 
-# 4. 知识库统计
+# 4. 知识库统计（启动时已自动导入默认文档，应为非 0）
 curl http://localhost:8000/knowledge/stats
 
-# 5. 导入演示知识库
-curl -X POST http://localhost:8000/knowledge/upload \
-  -F "file=@data/demo_docs/sample_knowledge.json"
-
-# 6. 检索
+# 5. 检索
 curl -X POST "http://localhost:8000/search?query=Navio如何接入API&top_k=3"
 
-# 7. 监控
+# 6. 监控
 curl http://localhost:8000/monitor
 
-# 8. Skills
+# 7. Skills
 curl http://localhost:8000/skills
 
-# 9. 评测
+# 8. 评测
 curl -X POST http://localhost:8000/eval/run
 ```

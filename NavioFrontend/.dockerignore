@@ -1,6 +1,12 @@
 node_modules/
+dist/
 .idea/
 .vscode/
 .DS_Store
 *.log
 .env
+.env.*
+!.env.example
+Dockerfile*
+docker-compose*.yml
+README.md

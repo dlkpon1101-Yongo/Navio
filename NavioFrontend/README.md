@@ -20,7 +20,7 @@
 |----------|--------|
 | `/api/python` | `http://localhost:8000` |
 
-Docker 模式下，Nginx 通过 `host.docker.internal` 访问宿主机上的 Python 服务。
+Docker 模式下，Nginx 通过 `proxy_pass http://navio:8000/` 反代到同一 Compose 网络中的后端容器（见根目录 `docker-compose.yml`），无需 `host.docker.internal`。
 
 ## 本地运行
 
@@ -50,13 +50,9 @@ VITE_PYTHON_API_URL=http://localhost:8000 npm run dev
 
 ## Docker 部署
 
-先构建前端静态文件：
+前端 Dockerfile 为多阶段构建（Node 构建 → Nginx 托管），无需手动 `npm run build`。
 
-```bash
-npm run build
-```
-
-再构建并启动容器：
+在**仓库根目录**构建并启动完整全栈（含后端与基础设施）：
 
 ```bash
 docker compose up -d --build

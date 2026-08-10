@@ -17,9 +17,8 @@ logs/
 .env.*
 !.env.example
 
-data/chroma/
-data/**/*.sqlite3
-data/.DS_Store
-
-config/grafana/
-config/nginx/ssl/
+data/
+Dockerfile*
+docker-compose*.yml
+deploy.sh
+README.md
