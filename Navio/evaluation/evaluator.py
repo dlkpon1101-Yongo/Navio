@@ -479,17 +479,17 @@ class EndToEndEvaluator:
 # ── 内置测试用例（开箱即用）──────────────────────────────────────────────────
 
 DEFAULT_INTENT_CASES: List[IntentTestCase] = [
-    IntentTestCase("我的订单什么时候到？",       "logistics"),
-    IntentTestCase("帮我取消订单",               "request"),
-    IntentTestCase("你们服务太差了！",            "complaint"),
-    IntentTestCase("应用一直报500错误",           "technical_crash"),
-    IntentTestCase("为什么扣了两次款？",          "payment_issue"),
-    IntentTestCase("我要投诉，转人工！",          "human_handoff"),
-    IntentTestCase("你好",                        "greeting"),
-    IntentTestCase("修改我的邮箱地址",            "account"),
-    IntentTestCase("帮我开发票",                  "invoice"),
-    IntentTestCase("退款多久到账？",              "refund"),
-    IntentTestCase("登录一直报401",               "technical_login"),
+    IntentTestCase("这款理财产品的年化收益是多少？", "financial_product"),
+    IntentTestCase("帮我看看这只基金的净值",               "fund"),
+    IntentTestCase("大额存单现在利率多少？",               "deposit"),
+    IntentTestCase("信用贷最多能贷多少钱？",               "loan"),
+    IntentTestCase("信用卡账单分期费率怎么算？",           "credit_card"),
+    IntentTestCase("网银登录一直超时怎么办？",             "technical_login"),
+    IntentTestCase("转账页面报500错误",                    "technical_crash"),
+    IntentTestCase("你好",                                  "greeting"),
+    IntentTestCase("我要投诉怎么转人工？",                 "human_handoff"),
+    IntentTestCase("怎么开通理财账户？",                   "kyc"),
+    IntentTestCase("我的卡丢了要挂失",                     "card_loss"),
 ]
 
 DEFAULT_DIALOG_CASES: List[Dict[str, Any]] = [

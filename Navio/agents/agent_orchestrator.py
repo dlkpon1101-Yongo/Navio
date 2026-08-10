@@ -205,31 +205,42 @@ class BaseAgent:
 
     def _needs_escalation(self, content: str) -> bool:
         """检测 Agent 是否建议升级（简单关键词检测）。"""
-        keywords = ["转人工", "人工客服", "escalate", "specialist", "无法处理"]
+        keywords = ["转人工", "人工客服", "escalate", "specialist", "无法处理",
+                     "投诉", "监管", "盗刷", "挂失", "冻结", "销户"]
         return any(kw in content for kw in keywords)
 
 
 class GeneralAgent(BaseAgent):
     agent_type    = AgentType.GENERAL
     system_prompt = (
-        "你是 Navio 智能客服。友好、简洁地回答用户问题。"
-        "如果问题超出你的能力范围，明确说明并建议转接专业客服。"
+        "你是 Navio 综合金融顾问。用通俗易懂的语言介绍理财产品、基金、存款等基本信息，"
+        "包括收益率说明、风险等级解释、期限和流动性等。"
+        "当用户明确询问\"该不该买\"\"现在投合适吗\"\"推荐哪个好\"等投资建议时，"
+        "回复：\"我不能提供具体的投资建议，建议您咨询持牌投资顾问。\""
+        "所有产品说明后请附带：\"投资有风险，过往业绩不预示未来表现。\""
+        "对于基金类问题，提示\"基金投资有亏损可能，请结合自身风险承受能力决策\"。"
     )
 
 
 class TechnicalAgent(BaseAgent):
     agent_type    = AgentType.TECHNICAL
     system_prompt = (
-        "你是技术支持专家。专注于：故障排查、错误诊断、系统配置。"
-        "提供清晰的步骤化解决方案。遇到需要后台操作的问题，说明需要升级处理。"
+        "你是金融系统技术支持专家。专注于：网银/App 登录故障、转账失败、验证码问题、"
+        "系统报错、接口异常。按步骤排查：网络→版本→权限→配置→服务状态。"
+        "涉及账户冻结、大额转账失败等需后台操作的问题，说明需要转人工处理。"
+        "不要建议用户删除数据、绕过安全校验或分享验证码。"
     )
 
 
 class BillingAgent(BaseAgent):
     agent_type    = AgentType.BILLING
     system_prompt = (
-        "你是账单服务专家。专注于：账单查询、退款申请、发票问题、订阅管理。"
-        "对财务问题保持准确和专业。涉及实际退款操作时，说明需要人工审核。"
+        "你是账户与费用服务专员。专注于：贷款还款查询、信用卡账单/额度/分期、"
+        "手续费与扣费异议、开户实名认证（KYC）、挂失与盗刷处理。"
+        "对费用异议先核实再解释，避免直接否认。"
+        "涉及挂失盗刷、大额转账、销户等操作时，明确说明需要人工审核确认。"
+        "开户相关需说明：\"请准备好身份证原件和本人银行卡，实名认证需预留手机号匹配。\""
+        "回答务必准确，涉及金额和利率的数字需注明以实际合同为准。"
     )
 
 
@@ -247,18 +258,20 @@ class AgentOrchestrator:
 
     # 意图 → Agent 类型的静态映射（路由表）
     _INTENT_ROUTING: Dict[IntentCategory, AgentType] = {
-        IntentCategory.TECHNICAL:  AgentType.TECHNICAL,
+        # 技术 → technical
         IntentCategory.TECHNICAL_LOGIN: AgentType.TECHNICAL,
         IntentCategory.TECHNICAL_CRASH: AgentType.TECHNICAL,
-        IntentCategory.BILLING:    AgentType.BILLING,
-        IntentCategory.REFUND:     AgentType.BILLING,
-        IntentCategory.INVOICE:    AgentType.BILLING,
-        IntentCategory.PAYMENT_ISSUE: AgentType.BILLING,
-        IntentCategory.ACCOUNT:    AgentType.BILLING,
-        IntentCategory.ACCOUNT_SECURITY: AgentType.BILLING,
-        IntentCategory.ESCALATION: AgentType.ESCALATION,
+        # 账户/费用 → billing
+        IntentCategory.LOAN:         AgentType.BILLING,
+        IntentCategory.CREDIT_CARD:  AgentType.BILLING,
+        IntentCategory.REPAYMENT:    AgentType.BILLING,
+        IntentCategory.FEE_DISPUTE:  AgentType.BILLING,
+        IntentCategory.CARD_LOSS:    AgentType.BILLING,
+        IntentCategory.KYC:          AgentType.BILLING,
+        # 升级 → escalation
+        IntentCategory.ESCALATION:    AgentType.ESCALATION,
         IntentCategory.HUMAN_HANDOFF: AgentType.ESCALATION,
-        # 其余意图 → GENERAL（默认）
+        # 其余 → GENERAL（金融产品 / 基金 / 存款 / 风险 / 投资建议 / 通用）
     }
 
     def __init__(
@@ -318,7 +331,7 @@ class AgentOrchestrator:
         if self._needs_clarification(req):
             return OrchestratorResult(
                 request_id=req.request_id,
-                response="我还不能确定您要处理的是哪类问题。请补充一下是订单物流、退款账单、账户资料，还是技术故障？",
+                response="我还不能确定您要处理的是哪类问题。请补充一下是理财产品、贷款还款、信用卡账单，还是系统技术故障？",
                 agent_type=AgentType.GENERAL,
                 intent=req.intent,
                 escalated=False,
@@ -479,8 +492,11 @@ class AgentOrchestrator:
 
         if req.intent in (
             IntentCategory.QUERY,
-            IntentCategory.ORDER_STATUS,
-            IntentCategory.LOGISTICS,
+            IntentCategory.FINANCIAL_PRODUCT,
+            IntentCategory.FUND,
+            IntentCategory.DEPOSIT,
+            IntentCategory.RISK_ASSESSMENT,
+            IntentCategory.INVESTMENT_ADVICE,
             IntentCategory.REQUEST,
             IntentCategory.COMPLAINT,
             IntentCategory.GREETING,
@@ -490,25 +506,24 @@ class AgentOrchestrator:
             scores[AgentType.GENERAL] += 0.55
 
         if req.intent in (
-            IntentCategory.TECHNICAL,
             IntentCategory.TECHNICAL_LOGIN,
             IntentCategory.TECHNICAL_CRASH,
         ):
             scores[AgentType.TECHNICAL] += 0.75
 
         if req.intent in (
-            IntentCategory.BILLING,
-            IntentCategory.ACCOUNT,
-            IntentCategory.ACCOUNT_SECURITY,
-            IntentCategory.REFUND,
-            IntentCategory.INVOICE,
-            IntentCategory.PAYMENT_ISSUE,
+            IntentCategory.LOAN,
+            IntentCategory.CREDIT_CARD,
+            IntentCategory.REPAYMENT,
+            IntentCategory.FEE_DISPUTE,
+            IntentCategory.CARD_LOSS,
+            IntentCategory.KYC,
         ):
             scores[AgentType.BILLING] += 0.75
 
-        technical_kws = ["崩溃", "报错", "error", "crash", "无法登录", "登录失败", "500", "401", "验证码"]
-        billing_kws = ["退款", "退货", "扣款", "发票", "账单", "支付", "订阅", "refund", "invoice", "多扣"]
-        general_kws = ["订单", "物流", "快递", "配送", "会员", "积分", "咨询", "帮助"]
+        technical_kws = ["崩溃", "闪退", "报错", "无法登录", "登录失败", "验证码", "转账失败", "500", "401", "超时"]
+        billing_kws = ["还款", "分期", "账单", "扣款", "挂失", "贷款", "额度", "信用卡", "开户", "盗刷", "逾期"]
+        general_kws = ["理财", "基金", "收益", "年化", "风险", "存款", "利率", "净值", "投资", "申购"]
 
         technical_hits = sum(1 for kw in technical_kws if kw in msg)
         billing_hits = sum(1 for kw in billing_kws if kw in msg)
@@ -556,22 +571,21 @@ class AgentOrchestrator:
         msg = req.message.lower()
         targets: List[AgentType] = []
 
-        technical_kws = ["崩溃", "报错", "error", "crash", "无法登录", "登录失败", "500", "401"]
-        billing_kws = ["退款", "扣款", "发票", "账单", "支付", "订阅", "refund", "invoice"]
+        technical_kws = ["崩溃", "闪退", "报错", "无法登录", "登录失败", "500", "401", "验证码"]
+        billing_kws = ["还款", "分期", "账单", "扣款", "挂失", "贷款", "额度", "信用卡", "开户", "盗刷"]
 
         if req.intent in (
-            IntentCategory.TECHNICAL,
             IntentCategory.TECHNICAL_LOGIN,
             IntentCategory.TECHNICAL_CRASH,
         ) or any(kw in msg for kw in technical_kws):
             targets.append(AgentType.TECHNICAL)
         if req.intent in (
-            IntentCategory.BILLING,
-            IntentCategory.ACCOUNT,
-            IntentCategory.ACCOUNT_SECURITY,
-            IntentCategory.REFUND,
-            IntentCategory.INVOICE,
-            IntentCategory.PAYMENT_ISSUE,
+            IntentCategory.LOAN,
+            IntentCategory.CREDIT_CARD,
+            IntentCategory.REPAYMENT,
+            IntentCategory.FEE_DISPUTE,
+            IntentCategory.CARD_LOSS,
+            IntentCategory.KYC,
         ) or any(kw in msg for kw in billing_kws):
             targets.append(AgentType.BILLING)
 

@@ -27,25 +27,30 @@ logger = logging.getLogger(__name__)
 
 
 class IntentCategory(Enum):
-    QUERY      = "query"       # 查询信息
-    COMPLAINT  = "complaint"   # 投诉不满
-    REQUEST    = "request"     # 请求操作
-    GREETING   = "greeting"    # 问候
-    ESCALATION = "escalation"  # 要求升级/转人工
-    TECHNICAL  = "technical"   # 技术问题
-    BILLING    = "billing"     # 账单/退款
-    ACCOUNT    = "account"     # 账户管理
-    FEEDBACK   = "feedback"    # 正面反馈
-    ORDER_STATUS = "order_status"        # 订单状态
-    LOGISTICS = "logistics"              # 物流配送
-    REFUND = "refund"                    # 退款/退货
-    INVOICE = "invoice"                  # 发票
-    PAYMENT_ISSUE = "payment_issue"      # 支付/扣款异常
-    ACCOUNT_SECURITY = "account_security" # 账户安全
-    TECHNICAL_LOGIN = "technical_login"  # 登录认证故障
-    TECHNICAL_CRASH = "technical_crash"  # 崩溃/错误码
-    HUMAN_HANDOFF = "human_handoff"      # 转人工
-    OTHER      = "other"
+    # ── 金融业务意图 ──────────────────────────────────────────────────
+    FINANCIAL_PRODUCT = "financial_product"   # 理财产品查询
+    FUND              = "fund"                # 基金查询
+    DEPOSIT           = "deposit"             # 存款查询
+    LOAN              = "loan"                # 贷款查询
+    CREDIT_CARD       = "credit_card"         # 信用卡查询
+    REPAYMENT         = "repayment"           # 还款查询
+    FEE_DISPUTE       = "fee_dispute"         # 费用异议
+    CARD_LOSS         = "card_loss"           # 挂失/盗刷
+    KYC               = "kyc"                 # 开户/实名认证
+    RISK_ASSESSMENT   = "risk_assessment"     # 风险评估
+    INVESTMENT_ADVICE = "investment_advice"   # 投资建议
+    # ── 通用意图 ────────────────────────────────────────────────────
+    QUERY             = "query"               # 信息查询
+    COMPLAINT         = "complaint"           # 投诉不满
+    REQUEST           = "request"             # 请求操作
+    GREETING          = "greeting"            # 问候
+    ESCALATION        = "escalation"          # 要求升级
+    FEEDBACK          = "feedback"            # 正面反馈
+    # ── 系统技术意图 ────────────────────────────────────────────────
+    TECHNICAL_LOGIN   = "technical_login"     # 登录认证故障
+    TECHNICAL_CRASH   = "technical_crash"     # 崩溃/系统报错
+    HUMAN_HANDOFF     = "human_handoff"       # 转人工
+    OTHER             = "other"
 
 
 class UrgencyLevel(Enum):
@@ -69,33 +74,43 @@ class IntentResult:
 
 # ── Few-shot 模板（同时用于 LLM 示例和 Embedding 匹配）────────────────────────
 _TEMPLATES: Dict[IntentCategory, List[str]] = {
-    IntentCategory.QUERY:      ["我的订单状态是什么？", "如何重置密码？", "快递什么时候到？"],
-    IntentCategory.COMPLAINT:  ["等了好几个小时！", "服务太差了！", "一直没人处理！"],
-    IntentCategory.REQUEST:    ["帮我取消订单", "我需要修改地址", "请协助退款"],
+    # ── 金融业务 ───────────────────────────────────────────────────
+    IntentCategory.FINANCIAL_PRODUCT: ["这款理财产品年化收益是多少？", "这个理财产品的风险等级是几级？", "有没有期限短的理财推荐？"],
+    IntentCategory.FUND:              ["这只基金最近净值多少？", "申购费率怎么算？", "基金赎回几天到账？"],
+    IntentCategory.DEPOSIT:           ["大额存单现在利率多少？", "定期存款和活期存款哪个划算？", "通知存款七天利率是多少？"],
+    IntentCategory.LOAN:              ["信用贷利率多少？", "贷款额度怎么计算？", "装修贷最长能贷几年？"],
+    IntentCategory.CREDIT_CARD:       ["我的信用卡账单能分期吗？", "信用卡年费可以免吗？", "信用卡临时额度怎么申请？"],
+    IntentCategory.REPAYMENT:         ["这个月贷款要还多少？", "房贷提前还款有什么限制？", "逾期一天会怎么样？"],
+    IntentCategory.FEE_DISPUTE:       ["这笔手续费为什么这么高？", "跨行转账收费多少？", "账户管理费怎么收取？"],
+    IntentCategory.CARD_LOSS:         ["我的卡丢了怎么挂失？", "信用卡被盗刷了怎么办？", "挂失后多久能补新卡？"],
+    IntentCategory.KYC:               ["怎么开通理财账户？", "实名认证需要什么材料？", "账户信息怎么修改？"],
+    IntentCategory.RISK_ASSESSMENT:   ["我是稳健型适合买什么？", "风险等级怎么划分？", "风险评估问卷在哪里？"],
+    IntentCategory.INVESTMENT_ADVICE: ["现在买这个基金合适吗？", "这个理财值得投吗？", "帮我推荐一只基金"],
+    # ── 通用 ─────────────────────────────────────────────────────
+    IntentCategory.QUERY:      ["怎么查我的贷款余额？", "在哪里看基金净值？", "账户明细在哪查？"],
+    IntentCategory.COMPLAINT:  ["等了很久没人处理！", "服务太差了！", "这个手续费不合理！"],
+    IntentCategory.REQUEST:    ["帮我修改账户信息", "我需要打印流水", "请帮我取消订阅"],
     IntentCategory.GREETING:   ["你好", "嗨，有人吗", "早上好"],
     IntentCategory.ESCALATION: ["我要投诉！", "转人工客服", "找你们经理"],
-    IntentCategory.TECHNICAL:  ["应用一直崩溃", "无法登录", "出现500错误"],
-    IntentCategory.BILLING:    ["为什么扣了两次款？", "申请退款", "发票问题"],
-    IntentCategory.ACCOUNT:    ["修改邮箱", "注销账户", "更新个人信息"],
     IntentCategory.FEEDBACK:   ["服务很棒！", "非常满意", "给个好评"],
-    IntentCategory.ORDER_STATUS: ["我的订单现在是什么状态？", "订单有没有发货？", "订单处理到哪一步了？"],
-    IntentCategory.LOGISTICS: ["快递什么时候到？", "物流一直不更新", "配送要多久？"],
-    IntentCategory.REFUND: ["我要申请退款", "退货退款怎么处理？", "退款多久到账？"],
-    IntentCategory.INVOICE: ["帮我开发票", "发票抬头怎么改？", "电子发票在哪里？"],
-    IntentCategory.PAYMENT_ISSUE: ["为什么重复扣款？", "支付失败怎么办？", "这个月多扣了钱"],
-    IntentCategory.ACCOUNT_SECURITY: ["账户被盗了", "发现异常登录", "我要重置密码"],
-    IntentCategory.TECHNICAL_LOGIN: ["登录一直报401", "验证码收不到", "无法登录账号"],
-    IntentCategory.TECHNICAL_CRASH: ["应用一直崩溃", "页面报500错误", "系统闪退"],
-    IntentCategory.HUMAN_HANDOFF: ["转人工客服", "我要找人工", "请升级处理"],
+    # ── 技术 ─────────────────────────────────────────────────────
+    IntentCategory.TECHNICAL_LOGIN: ["网银登录一直提示超时", "验证码收不到", "登录页面打不开"],
+    IntentCategory.TECHNICAL_CRASH: ["转账页面报500错误", "App一直闪退", "系统提示服务不可用"],
+    IntentCategory.HUMAN_HANDOFF:   ["转人工客服", "我要找人工", "请升级处理"],
 }
 
 _SPECIFIC_INTENTS = {
-    IntentCategory.ORDER_STATUS,
-    IntentCategory.LOGISTICS,
-    IntentCategory.REFUND,
-    IntentCategory.INVOICE,
-    IntentCategory.PAYMENT_ISSUE,
-    IntentCategory.ACCOUNT_SECURITY,
+    IntentCategory.FINANCIAL_PRODUCT,
+    IntentCategory.FUND,
+    IntentCategory.DEPOSIT,
+    IntentCategory.LOAN,
+    IntentCategory.CREDIT_CARD,
+    IntentCategory.REPAYMENT,
+    IntentCategory.FEE_DISPUTE,
+    IntentCategory.CARD_LOSS,
+    IntentCategory.KYC,
+    IntentCategory.RISK_ASSESSMENT,
+    IntentCategory.INVESTMENT_ADVICE,
     IntentCategory.TECHNICAL_LOGIN,
     IntentCategory.TECHNICAL_CRASH,
     IntentCategory.HUMAN_HANDOFF,
@@ -103,28 +118,34 @@ _SPECIFIC_INTENTS = {
 
 _GENERIC_INTENTS = {
     IntentCategory.QUERY,
-    IntentCategory.BILLING,
-    IntentCategory.TECHNICAL,
-    IntentCategory.ACCOUNT,
+    IntentCategory.REQUEST,
+    IntentCategory.COMPLAINT,
     IntentCategory.ESCALATION,
 }
 
 _INTENT_GROUPS: Dict[IntentCategory, IntentCategory] = {
-    IntentCategory.ORDER_STATUS: IntentCategory.QUERY,
-    IntentCategory.LOGISTICS: IntentCategory.QUERY,
-    IntentCategory.REFUND: IntentCategory.BILLING,
-    IntentCategory.INVOICE: IntentCategory.BILLING,
-    IntentCategory.PAYMENT_ISSUE: IntentCategory.BILLING,
-    IntentCategory.ACCOUNT_SECURITY: IntentCategory.ACCOUNT,
-    IntentCategory.TECHNICAL_LOGIN: IntentCategory.TECHNICAL,
-    IntentCategory.TECHNICAL_CRASH: IntentCategory.TECHNICAL,
-    IntentCategory.HUMAN_HANDOFF: IntentCategory.ESCALATION,
+    # 金融业务 → 查询/请求/投诉
+    IntentCategory.FINANCIAL_PRODUCT: IntentCategory.QUERY,
+    IntentCategory.FUND:              IntentCategory.QUERY,
+    IntentCategory.DEPOSIT:           IntentCategory.QUERY,
+    IntentCategory.RISK_ASSESSMENT:   IntentCategory.QUERY,
+    IntentCategory.LOAN:              IntentCategory.REQUEST,
+    IntentCategory.CREDIT_CARD:       IntentCategory.REQUEST,
+    IntentCategory.REPAYMENT:         IntentCategory.REQUEST,
+    IntentCategory.FEE_DISPUTE:       IntentCategory.COMPLAINT,
+    IntentCategory.CARD_LOSS:         IntentCategory.COMPLAINT,
+    IntentCategory.KYC:               IntentCategory.REQUEST,
+    IntentCategory.INVESTMENT_ADVICE: IntentCategory.REQUEST,
+    # 技术
+    IntentCategory.TECHNICAL_LOGIN:   IntentCategory.QUERY,
+    IntentCategory.TECHNICAL_CRASH:   IntentCategory.COMPLAINT,
+    IntentCategory.HUMAN_HANDOFF:     IntentCategory.ESCALATION,
 }
 
 # 紧急关键词
 _URGENCY_KEYWORDS = {
-    UrgencyLevel.CRITICAL: ["紧急", "emergency", "urgent", "asap", "立刻"],
-    UrgencyLevel.HIGH:     ["今天", "马上", "尽快", "hurry", "now"],
+    UrgencyLevel.CRITICAL: ["紧急", "emergency", "urgent", "asap", "立刻", "盗刷", "被偷", "挂失", "冻结", "亏损"],
+    UrgencyLevel.HIGH:     ["今天", "马上", "尽快", "hurry", "now", "逾期", "吞卡"],
     UrgencyLevel.MEDIUM:   ["这周", "soon", "快点"],
 }
 
@@ -308,25 +329,27 @@ class IntentRecognizer:
         """策略 3：关键词模式匹配（同步，零延迟兜底）。"""
         msg = message.lower()
         specific_patterns = {
-            IntentCategory.HUMAN_HANDOFF: ["转人工", "人工客服", "找人工"],
-            IntentCategory.ORDER_STATUS: ["订单状态", "发货了吗", "处理到哪", "order status"],
-            IntentCategory.LOGISTICS: ["物流", "快递", "配送", "运单", "delivery", "shipping"],
-            IntentCategory.REFUND: ["退款", "退货", "refund", "return"],
-            IntentCategory.INVOICE: ["发票", "抬头", "税号", "invoice"],
-            IntentCategory.PAYMENT_ISSUE: ["重复扣款", "多扣", "支付失败", "扣费", "payment failed"],
-            IntentCategory.ACCOUNT_SECURITY: ["被盗", "异常登录", "重置密码", "两步验证", "安全"],
-            IntentCategory.TECHNICAL_LOGIN: ["无法登录", "登录失败", "401", "验证码"],
-            IntentCategory.TECHNICAL_CRASH: ["崩溃", "闪退", "500", "报错", "crash"],
+            IntentCategory.HUMAN_HANDOFF:  ["转人工", "人工客服", "找人工"],
+            IntentCategory.FINANCIAL_PRODUCT: ["理财", "年化", "固收", "净值型", "结构性"],
+            IntentCategory.FUND:           ["基金", "申购", "赎回", "净值", "etf"],
+            IntentCategory.DEPOSIT:        ["存款", "存单", "定期", "活期", "通知存款"],
+            IntentCategory.LOAN:           ["贷款", "利率", "额度", "抵押", "信用贷", "装修贷"],
+            IntentCategory.CREDIT_CARD:    ["信用卡", "账单", "分期", "额度", "年费", "积分"],
+            IntentCategory.REPAYMENT:      ["还款", "提前还款", "月供", "逾期", "宽限期"],
+            IntentCategory.FEE_DISPUTE:    ["手续费", "管理费", "扣费", "收费", "转账费"],
+            IntentCategory.CARD_LOSS:      ["挂失", "盗刷", "被偷", "丢了", "失卡"],
+            IntentCategory.KYC:            ["开户", "实名", "认证", "身份证", "人脸"],
+            IntentCategory.RISK_ASSESSMENT: ["风险等级", "风险测评", "保守", "稳健", "风险承受"],
+            IntentCategory.INVESTMENT_ADVICE: ["推荐", "值得投", "适合买", "哪个好", "建议"],
+            IntentCategory.TECHNICAL_LOGIN:  ["无法登录", "登录失败", "401", "验证码", "超时"],
+            IntentCategory.TECHNICAL_CRASH:  ["崩溃", "闪退", "500", "报错", "crash", "服务不可用"],
         }
         generic_patterns = {
             IntentCategory.ESCALATION: ["投诉", "经理", "supervisor"],
-            IntentCategory.COMPLAINT:  ["太差", "糟糕", "horrible", "等了很久"],
-            IntentCategory.QUERY:      ["?", "？", "怎么", "什么", "status"],
-            IntentCategory.REQUEST:    ["帮我", "需要", "please", "help"],
+            IntentCategory.COMPLAINT:  ["太差", "糟糕", "horrible"],
+            IntentCategory.QUERY:      ["?", "？", "怎么", "什么", "哪里", "查"],
+            IntentCategory.REQUEST:    ["帮我", "需要", "please", "help", "申请"],
             IntentCategory.GREETING:   ["你好", "嗨", "hello", "hi"],
-            IntentCategory.BILLING:    ["退款", "扣款", "发票", "refund"],
-            IntentCategory.TECHNICAL:  ["崩溃", "报错", "error", "crash"],
-            IntentCategory.ACCOUNT:    ["密码", "邮箱", "账户", "password"],
         }
 
         best_cat, best_score = self._best_pattern_match(msg, specific_patterns)

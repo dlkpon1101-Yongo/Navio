@@ -92,7 +92,7 @@
         </div>
 
         <form class="composer" @submit.prevent="sendMessage">
-          <textarea v-model="draft" rows="3" placeholder="输入问题，例如：我想申请退款，订单号是 #12345"></textarea>
+          <textarea v-model="draft" rows="3" placeholder="输入问题，例如：这款理财产品年化收益多少？"></textarea>
           <button :disabled="busy || !draft.trim()">{{ busy ? '发送中' : '发送' }}</button>
         </form>
       </section>
@@ -165,10 +165,10 @@ const healthOk = ref(false)
 const healthLabel = ref('未检查')
 const statusText = ref('')
 const knowledgeCount = ref('-')
-const searchQuery = ref('退款多久能到账')
+const searchQuery = ref('这款理财的年化收益多少？')
 const searchResults = ref([])
-const docTitle = ref('退款补充政策')
-const docContent = ref('大促期间退款审核时间可能延长到 3-5 个工作日。')
+const docTitle = ref('理财产品说明')
+const docContent = ref('该产品起购金额1万元，业绩比较基准年化3.2%～3.8%，风险等级R2，期限90天。锁定期后每周三开放赎回，到期自动赎回。')
 const messageList = ref(null)
 
 const currentBackend = computed(() => backendMeta(settings))

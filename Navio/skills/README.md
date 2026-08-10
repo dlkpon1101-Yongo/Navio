@@ -5,9 +5,9 @@ Navio 启动时会从 `NAVIO_SKILLS_DIR` 读取 Skills，并在匹配用户请�
 当前内置三类 Skills：
 
 ```text
-skills/general_customer_service/SKILL.md  # 通用客服：接待、澄清、分流、投诉和转人工
-skills/technical_support/SKILL.md         # 技术支持：故障排查、接口错误、部署配置和安全边界
-skills/billing_support/SKILL.md           # 账单服务：扣款、退款、发票、订阅和财务审核
+skills/financial_products/SKILL.md  # 综合金融咨询：理财/基金/存款产品信息与合规规范
+skills/tech_support/SKILL.md         # 金融系统技术支持：网银/App 故障排查与安全边界
+skills/account_services/SKILL.md     # 账户与费用服务：贷款/信用卡/还款/挂失/KYC 规范
 ```
 
 ## Skill 文件格式

@@ -374,18 +374,18 @@ def _should_use_knowledge(message: str, intent=None) -> bool:
     if intent_value in {"greeting", "feedback", "escalation", "human_handoff", "other"}:
         return False
     if intent_value in {
-        "query", "request", "technical", "billing", "account", "complaint",
-        "order_status", "logistics", "refund", "invoice", "payment_issue",
-        "account_security", "technical_login", "technical_crash",
+        "query", "request", "complaint", "financial_product", "fund", "deposit",
+        "loan", "credit_card", "repayment", "fee_dispute", "card_loss", "kyc",
+        "risk_assessment", "investment_advice", "technical_login", "technical_crash",
     }:
         return True
     greetings = {"你好", "您好", "嗨", "hi", "hello", "hey", "早上好", "晚上好"}
     if msg in greetings:
         return False
     business_keywords = [
-        "退款", "订单", "物流", "配送", "发票", "扣款", "支付", "账单", "订阅",
-        "登录", "报错", "错误", "崩溃", "会员", "积分", "账户", "密码", "地址",
-        "refund", "order", "invoice", "payment", "error", "login",
+        "理财", "基金", "存款", "贷款", "信用卡", "还款", "手续费", "扣款", "挂失",
+        "开户", "实名", "净值", "年化", "收益", "风险等级", "登录", "报错", "错误",
+        "崩溃", "利率", "分期", "额度", "盗刷", "转账", "refund", "loan", "credit",
     ]
     return len(msg) >= 4 or any(kw in msg for kw in business_keywords)
 
