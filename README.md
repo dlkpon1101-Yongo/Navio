@@ -1,37 +1,61 @@
-# Navio 智能客服系统
+# Navio 金融产品咨询 Agent
 
-基于 **Python FastAPI + Vue 3** 的多 Agent 智能客服系统，支持意图识别、多 Agent 路由、RAG 知识库、三级记忆和端到端评测，可通过 Docker Compose 一键部署。
+基于 **Python FastAPI + Vue 3 + LLM** 的多 Agent 金融产品咨询系统，覆盖理财产品、基金、存款、贷款、信用卡等场景，支持意图识别、智能路由、RAG 知识库和合规话术。
 
 ## ✨ 核心能力
 
-- **多 Agent 编排**：`general`（通用客服）/ `technical`（技术支持）/ `billing`（账单服务），按意图自动路由，支持复合问题的多 Agent 协同
-- **意图识别**：LLM + 规则 Pattern + Embedding 三源融合打分，附带置信度
-- **RAG 知识库**：ChromaDB 向量检索 + 查询改写 + 重排，业务知识实时可更新
-- **三级记忆**：Redis 工作记忆（最近对话）+ ChromaDB 情景记忆（会话摘要）+ 用户画像，超过阈值自动压缩
-- **Skills 动态加载**：`SKILL.md` 热加载，随时更新 Agent 话术与业务流程，无需重启
-- **在线监控**：`/monitor` 展示 Agent 调用量、成功率、耗时与熔断状态，Prometheus 指标采集
-- **端到端评测**：`/eval/run` 用 LLM-as-Judge 评测意图准确率与对话质量，输出回归与改进建议
-- **转人工判定**：自动检测升级场景（`escalated`）
+- **金融多 Agent 编排**：`general`（综合金融顾问）/ `technical`（系统技术支持）/ `billing`（账户与费用专员），按意图自动路由
+- **15 种金融意图识别**：涵盖理财查询、基金净值、存款利率、贷款/信用卡、还款、挂失盗刷、开户 KYC、风险评估、投资建议等，LLM + Pattern + Embedding 三源融合
+- **合规红线内嵌**：禁止荐股推荐、禁止承诺收益、强制风险提示、挂失盗刷自动转人工
+- **RAG 金融知识库**：ChromaDB 向量检索 + 查询改写 + 重排，支持理财产品说明书、基金费率、贷款参数等实时导入
+- **三级记忆**：Redis 工作记忆 + ChromaDB 情景记忆 + 用户画像，对话超阈值自动压缩
+- **Skills 热加载**：`SKILL.md` 即改即生效，三套金融业务规范（综合咨询、技术支持、账户服务）
+- **在线监控**：`/monitor` 展示 Agent 调用量与成功率，Prometheus 指标采集
+- **端到端评测**：`/eval/run` LLM-as-Judge 评测意图准确率与对话质量
+
+### 意图体系
+
+| 意图 | 说明 | 路由 Agent |
+|---|---|---|
+| `financial_product` | 理财产品查询 | general |
+| `fund` | 基金查询 | general |
+| `deposit` | 存款查询 | general |
+| `loan` | 贷款查询 | billing |
+| `credit_card` | 信用卡查询 | billing |
+| `repayment` | 还款查询 | billing |
+| `fee_dispute` | 费用异议 | billing |
+| `card_loss` | 挂失盗刷 | billing（强制升级） |
+| `kyc` | 开户/实名认证 | billing |
+| `risk_assessment` | 风险评估 | general |
+| `investment_advice` | 投资建议 | general（合规拦截） |
+| `technical_login` | 登录故障 | technical |
+| `technical_crash` | 系统报错 | technical |
+| `human_handoff` | 转人工 | escalation |
+| `greeting` | 问候 | general |
 
 ## 📁 项目结构
 
 ```
-Navio/                    # Python FastAPI 后端
-├── api/main.py           # FastAPI 入口：/chat /search /knowledge/* /monitor /eval/run
-├── agents/               # AgentOrchestrator 多 Agent 编排（general/technical/billing）
-├── core/                 # 意图识别、Skill 加载、LLM 工具
-├── memory/               # 三级记忆：Redis 工作记忆 + ChromaDB 情景记忆 + 用户画像
-├── mcp/                  # 工具管理、知识库（RAG）
-├── monitor/              # 性能监控与告警
-├── evaluation/           # 端到端评测（LLM-as-Judge）
-├── skills/               # 业务 Skills（SKILL.md，可热加载）
-├── config/               # Nginx 反向代理、Prometheus 配置
-└── docker-compose.yml    # 后端全栈编排：app + redis + chromadb + prometheus + nginx
+Navio/                         # Python FastAPI 后端
+├── api/main.py                # /chat /search /knowledge /monitor /eval/run
+├── agents/agent_orchestrator.py  # 多 Agent 编排 + 金融路由表
+├── core/intent_recognizer.py  # 意图识别（15 种金融意图 + Pattern 规则）
+├── core/skill_loader.py       # Skills 动态加载
+├── core/llm_utils.py          # LLM 响应提取工具
+├── memory/conversation_memory.py  # 三级记忆
+├── mcp/                       # 工具管理 + ChromaDB 知识库
+├── monitor/performance_monitor.py  # 性能监控
+├── evaluation/evaluator.py    # LLM-as-Judge 评测
+├── skills/                    # 金融业务 Skills（可热加载）
+│   ├── financial_products/SKILL.md   # 综合金融咨询规范
+│   ├── tech_support/SKILL.md         # 金融系统技术规范
+│   └── account_services/SKILL.md     # 账户与费用服务规范
+├── config/                    # Nginx + Prometheus 配置
+└── docker-compose.yml         # 5 服务全栈编排
 
-NavioFrontend/            # Vue 3 前端（聊天调试台）
-├── src/App.vue           # 聊天、知识库检索、知识导入界面
-├── src/lib/backends.js   # 后端 API 封装
-└── vite.config.js        # Vite 代理配置
+NavioFrontend/                 # Vue 3 前端
+├── src/App.vue                # 聊天调试、知识库检索、知识导入
+└── src/lib/backends.js        # API 封装
 ```
 
 ## 🚀 快速开始
@@ -41,20 +65,14 @@ NavioFrontend/            # Vue 3 前端（聊天调试台）
 - Docker + Docker Compose
 - LLM API Key：Anthropic 官方 Key，或兼容 Anthropic 协议的第三方 Key（如 DeepSeek）
 
-### 1. 配置环境变量
+### 1. 配置
 
 ```bash
 cd Navio
 cp .env.example .env
 ```
 
-`.env` 最少配置：
-
-```env
-ANTHROPIC_API_KEY=your_api_key
-```
-
-使用 DeepSeek 兼容接口：
+`.env` 配置（DeepSeek 示例）：
 
 ```env
 ANTHROPIC_BASE_URL=https://api.deepseek.com/anthropic
@@ -62,74 +80,63 @@ ANTHROPIC_MODEL=deepseek-v4-pro
 ANTHROPIC_API_KEY=your_deepseek_key
 ```
 
-### 2. 启动后端（Docker Compose 全栈）
+### 2. 启动
 
 ```bash
-docker compose up -d --build
+docker compose up -d --build          # 后端 5 服务
+cd ../NavioFrontend
+npm install && npm run build
+docker compose up -d --build          # 前端容器
 ```
 
-启动 5 个服务：
-
 | 服务 | 端口 | 用途 |
-|------|------|------|
+|---|---|---|
 | navio-app | 8000 | FastAPI 主应用 |
 | navio-nginx | 80 | 反向代理 |
 | navio-chromadb | 8001 | 向量数据库 |
 | navio-redis | 6379 | 工作记忆 |
-| navio-prometheus | 9090 | 监控指标 |
+| navio-prometheus | 9090 | 监控 |
+| navio-frontend | 5174 | 前端界面 |
 
-验证：
+### 3. 验证
 
 ```bash
 curl http://localhost:8000/health   # {"status":"ok",...}
 ```
 
-Swagger 文档：http://localhost:8000/docs
-
-### 3. 启动前端（可选）
-
-```bash
-cd NavioFrontend
-npm install
-npm run dev          # 开发模式 → http://localhost:5173
-# 或 Docker 部署：npm run build && docker compose up -d --build → http://localhost:5174
-```
+- Swagger 文档：http://localhost:8000/docs
+- 前端聊天台：**http://localhost:5174**
 
 ## 💬 使用示例
 
 ```bash
+# 理财产品查询 → 路由到 general
 curl -X POST http://localhost:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "我想申请退款，订单号 #12345", "user_id": "u1001", "conv_id": "c001"}'
+  -d '{"message":"这款理财的年化收益是多少？风险等级是什么？","user_id":"u1001"}'
+
+# 信用卡账单 → 路由到 billing
+curl -X POST http://localhost:8000/chat \
+  -d '{"message":"我的信用卡账单能分期吗？','user_id":"u1001"}'
+
+# 挂失盗刷 → 自动转人工
+curl -X POST http://localhost:8000/chat \
+  -d '{"message":"我的卡被盗刷了!",'user_id":"u1001"}'
 ```
 
-返回关键字段：`intent`（意图）、`primary_agent`（路由 Agent）、`routing_confidence`（置信度）、`knowledge_used`（是否用知识库）、`escalated`（是否转人工）。
-
-### 常用 API
-
-| 接口 | 说明 |
-|------|------|
-| `POST /chat` | 主对话接口 |
-| `POST /search?query=&top_k=` | 知识库检索 |
-| `POST /knowledge/add` | JSON 批量导入知识 |
-| `POST /knowledge/upload` | 上传文件（.txt/.md/.json） |
-| `GET /knowledge/stats` | 知识库统计 |
-| `GET /monitor` | Agent/工具监控 |
-| `GET /skills` / `POST /skills/reload` | Skills 查看/热加载 |
-| `POST /eval/run` | 端到端评测 |
-| `GET /metrics` | Prometheus 指标 |
+返回字段：`intent` / `primary_agent` / `routing_confidence` / `knowledge_used` / `escalated`
 
 ## 🧠 系统架构
 
 ```mermaid
 flowchart TD
     A[用户消息] --> B[FastAPI /chat]
-    B --> C[MemoryManager 记忆<br/>Redis + ChromaDB]
-    C --> D[IntentRecognizer<br/>LLM + Pattern + Embedding]
-    D --> E[RAG 知识检索]
+    B --> C[MemoryManager<br/>Redis + ChromaDB]
+    C --> D[IntentRecognizer<br/>金融意图 · 15 种]
+    D --> E[RAG 金融知识检索]
     E --> F[AgentOrchestrator<br/>general / technical / billing]
-    F --> G[SkillManager 注入 Skills]
-    G --> H[Agent + LLM 回复]
+    F --> G[SkillManager<br/>注入金融业务 Skills]
+    G --> H[Agent + LLM · 合规话术]
     H --> I[回写 Redis / ChromaDB]
 ```
 
@@ -138,12 +145,10 @@ flowchart TD
 ```bash
 curl -X POST http://localhost:8000/eval/run \
   -H "Content-Type: application/json" \
-  -d '{"intent_cases": [{"message": "我要退款", "expected_intent": "billing_refund"}], "dialog_cases": []}'
+  -d '{"intent_cases":[{"message":"这款理财收益多少?","expected_intent":"financial_product"}]}'
 ```
 
-输出 `pass_rate`、`avg_scores`（意图准确率/相关性/准确性/完整性/有用性）、`regressions` 与 `recommendations`。
+## 📄 文档
 
-## 📄 详细文档
-
-- 后端完整使用指南：[`Navio/README.md`](Navio/README.md)
-- 前端说明：[`NavioFrontend/README.md`](NavioFrontend/README.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- 后端完整指南：[`Navio/README.md`](Navio/README.md)
